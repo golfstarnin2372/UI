@@ -1,5 +1,6 @@
 local library = {
-	WorkspaceName = "",
+	Version = "0.36",
+	WorkspaceName = "hee",
 	flags = {},
 	signals = {},
 	objects = {},
@@ -7084,7 +7085,42 @@ function library:CreateWindow(options, ...)
 			library.Backdrop.ImageTransparency = (library_flags["__Designer.Background.ImageTransparency"] or 95) / 100
 			library.Backdrop.ImageColor3 = library_flags["__Designer.Background.ImageColor"] or Color3.new(1, 1, 1)
 		end
-		
+		local function setbackground(t, Asset, Transparency, Visible)
+			if Visible == nil and t ~= nil and type(t) ~= "table" then
+				Asset, Transparency, Visible = t, Transparency, Visible
+			end
+			if Visible == 0 or ((Asset == 0 or Asset == false) and Visible == nil and Transparency == nil) then
+				Visible = false
+			elseif Visible == 1 or ((Asset == 1 or Asset == true) and Visible == nil and Transparency == nil) then
+				Visible = true
+			elseif Asset == nil and Transparency == nil and Visible == nil then
+				Visible = not library_flags["__Designer.Background.UseBackgroundImage"]
+			end
+			local temp = Asset and type(Asset)
+			if Transparency == nil and Visible == nil and temp == "number" and ((Asset ~= 1 and Asset ~= 0) or (Asset > 0 and Asset <= 100)) then
+				Transparency, Asset, temp = Asset, nil
+			end
+			if temp and ((temp == "number" and Asset > 1) or temp == "string") then
+				designerelements["__Designer.Textbox.ImageAssetID"]:Set(Asset)
+			end
+			temp = tonumber(Transparency)
+			temp = (temp >= 0 and temp <= 1 and temp * 100) or temp
+			if temp then
+				designerelements["__Designer.Slider.ImageTransparency"]:Set(temp)
+			end
+			if Visible ~= nil then
+				designerelements["__Designer.Toggle.UseBackgroundImage"]:Set(Visible and true)
+			end
+			return Asset, Transparency, Visible
+		end
+		local bk = options.Background or options.Backdrop or options.Grahpic
+		if bk then
+			if type(bk) == "table" then
+				setbackground(bk.Asset or bk[1], bk.Transparency or bk[2], bk.Visible or bk[3])
+			else
+				setbackground(bk, 0, 1)
+			end
+		end
 		library.Designer = {
 			Options = options,
 			Parent = windowFunctions,
@@ -7189,14 +7225,35 @@ function library:CreateWindow(options, ...)
 			else
 				whatDoILookLike = nil
 			end
-			
+			windowFunctions:CreateDesigner(whatDoILookLike)
+			if options.DefaultTheme or options.Theme then
+				spawn(function()
+					local content = options.DefaultTheme or options.Theme or options.JSON or options.ThemeJSON
+					if content and type(content) == "string" and #content > 1 then
+						local good, jcontent = JSONDecode(content)
+						if good and jcontent then
+							for cflag, val in next, jcontent do
+								local data = elements[cflag]
+								if data and (data.Type ~= "Persistence") then
+									if data.Set then
+										data:Set(val)
+									elseif data.RawSet then
+										data:RawSet(val)
+									else
+										library.flags[cflag] = val
+									end
+								end
+							end
+						end
+					end
+				end)
+			end
 			os_clock, starttime = nil
 		end)
 	end
 	return windowFunctions
 end
-local FunctionLibrary = Instance_new("ScreenGui")
-FunctionLibrary.Name = "Hee"
+
 
 library.NewWindow = library.CreateWindow
 library.AddWindow = library.CreateWindow
