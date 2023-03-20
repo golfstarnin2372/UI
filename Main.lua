@@ -7195,6 +7195,9 @@ function library:CreateWindow(options, ...)
 	end
 	return windowFunctions
 end
+local FunctionLibrary = Instance_new("ScreenGui")
+FunctionLibrary.Name = "Hee"
+
 library.NewWindow = library.CreateWindow
 library.AddWindow = library.CreateWindow
 library.Window = library.CreateWindow
