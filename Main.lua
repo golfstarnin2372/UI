@@ -1567,7 +1567,7 @@ function library:CreateWindow(options, ...)
 	library.globals["__Window" .. options.Name] = {
 		submenuOpen = submenuOpen
 	}
-	pepsiLibrary.Name = "     "
+	pepsiLibrary.Name = "gxlfntw"
 	pepsiLibrary.Parent = library.gui_parent
 	pepsiLibrary.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	pepsiLibrary.DisplayOrder = 10
