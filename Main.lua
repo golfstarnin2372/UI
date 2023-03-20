@@ -1,6 +1,5 @@
 local library = {
-	Version = "0.36",
-	WorkspaceName = "hee",
+	WorkspaceName = "",
 	flags = {},
 	signals = {},
 	objects = {},
