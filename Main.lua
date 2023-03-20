@@ -7085,14 +7085,6 @@ function library:CreateWindow(options, ...)
 			library.Backdrop.ImageColor3 = library_flags["__Designer.Background.ImageColor"] or Color3.new(1, 1, 1)
 		end
 		
-		local bk = options.Background or options.Backdrop or options.Grahpic
-		if bk then
-			if type(bk) == "table" then
-				setbackground(bk.Asset or bk[1], bk.Transparency or bk[2], bk.Visible or bk[3])
-			else
-				setbackground(bk, 0, 1)
-			end
-		end
 		library.Designer = {
 			Options = options,
 			Parent = windowFunctions,
@@ -7197,29 +7189,7 @@ function library:CreateWindow(options, ...)
 			else
 				whatDoILookLike = nil
 			end
-			windowFunctions:CreateDesigner(whatDoILookLike)
-			if options.DefaultTheme or options.Theme then
-				spawn(function()
-					local content = options.DefaultTheme or options.Theme or options.JSON or options.ThemeJSON
-					if content and type(content) == "string" and #content > 1 then
-						local good, jcontent = JSONDecode(content)
-						if good and jcontent then
-							for cflag, val in next, jcontent do
-								local data = elements[cflag]
-								if data and (data.Type ~= "Persistence") then
-									if data.Set then
-										data:Set(val)
-									elseif data.RawSet then
-										data:RawSet(val)
-									else
-										library.flags[cflag] = val
-									end
-								end
-							end
-						end
-					end
-				end)
-			end
+			
 			os_clock, starttime = nil
 		end)
 	end
