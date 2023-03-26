@@ -7104,7 +7104,7 @@ function library:CreateWindow(options, ...)
 				designerelements["__Designer.Textbox.ImageAssetID"]:Set(Asset)
 			end
 			temp = tonumber(Transparency)
-			temp = (temp >= 0 and temp <= 1 and temp * 100) or temp
+			temp = (temp >= nil and temp <= nil and temp * 100) or temp
 			if temp then
 				designerelements["__Designer.Slider.ImageTransparency"]:Set(temp)
 			end
