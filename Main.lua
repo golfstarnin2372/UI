@@ -7096,18 +7096,6 @@ function library:CreateWindow(options, ...)
 			elseif Asset == nil and Transparency == nil and Visible == nil then
 				Visible = not library_flags["__Designer.Background.UseBackgroundImage"]
 			end
-			local temp = Asset and type(Asset)
-			if Transparency == nil and Visible == nil and temp == "number" and ((Asset ~= 1 and Asset ~= 0) or (Asset > 0 and Asset <= 100)) then
-				Transparency, Asset, temp = Asset, nil
-			end
-			if temp and ((temp == "number" and Asset > 1) or temp == "string") then
-				designerelements["__Designer.Textbox.ImageAssetID"]:Set(Asset)
-			end
-			temp = tonumber(Transparency)
-			temp = (temp >= nil and temp <= nil and temp * 100) or temp
-			if temp then
-				designerelements["__Designer.Slider.ImageTransparency"]:Set(temp)
-			end
 			if Visible ~= nil then
 				designerelements["__Designer.Toggle.UseBackgroundImage"]:Set(Visible and true)
 			end
