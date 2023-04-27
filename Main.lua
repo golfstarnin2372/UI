@@ -9,30 +9,30 @@ local library = {
 	subs = {},
 	colored = {},
 	configuration = {
-		hideKeybind = Enum.KeyCode.RightShift,
+		hideKeybind = Enum.KeyCode.LeftAlt,
 		smoothDragging = false,
 		easingStyle = Enum.EasingStyle.Quart,
 		easingDirection = Enum.EasingDirection.Out
 	},
 	colors = {
-		main = Color3.fromRGB(255, 39, 39),
-		background = Color3.fromRGB(40, 40, 40),
-		outerBorder = Color3.fromRGB(15, 15, 15),
-		innerBorder = Color3.fromRGB(73, 63, 73),
-		topGradient = Color3.fromRGB(35, 35, 35),
-		bottomGradient = Color3.fromRGB(29, 29, 29),
-		sectionBackground = Color3.fromRGB(35, 34, 34),
-		section = Color3.fromRGB(176, 175, 176),
-		otherElementText = Color3.fromRGB(129, 127, 129),
-		elementText = Color3.fromRGB(147, 145, 147),
-		elementBorder = Color3.fromRGB(20, 20, 20),
-		selectedOption = Color3.fromRGB(55, 55, 55),
-		unselectedOption = Color3.fromRGB(40, 40, 40),
-		hoveredOptionTop = Color3.fromRGB(65, 65, 65),
-		unhoveredOptionTop = Color3.fromRGB(50, 50, 50),
-		hoveredOptionBottom = Color3.fromRGB(45, 45, 45),
-		unhoveredOptionBottom = Color3.fromRGB(35, 35, 35),
-		tabText = Color3.fromRGB(185, 185, 185)
+		main = Color3.fromRGB(255, 255, 255),
+		background = Color3.fromRGB(21, 7, 21),
+		outerBorder = Color3.fromRGB(0, 0, 0),
+		innerBorder = Color3.fromRGB(255, 255, 255),
+		topGradient = Color3.fromRGB(0, 0, 0),
+		bottomGradient = Color3.fromRGB(21, 7, 21),
+		sectionBackground = Color3.fromRGB(26, 9, 26),
+		section = Color3.fromRGB(255, 255, 255),
+		otherElementText = Color3.fromRGB(255, 255, 255),
+		elementText = Color3.fromRGB(255, 255, 255),
+		elementBorder = Color3.fromRGB(21, 7, 21),
+		selectedOption = Color3.fromRGB(21, 7, 21),
+		unselectedOption = Color3.fromRGB(21, 7, 21),
+		hoveredOptionTop = Color3.fromRGB(21, 7, 21),
+		unhoveredOptionTop = Color3.fromRGB(21, 7, 21),
+		hoveredOptionBottom = Color3.fromRGB(21, 7, 21),
+		unhoveredOptionBottom = Color3.fromRGB(21, 7, 21),
+		tabText = Color3.fromRGB(255, 255, 255)
 	},
 	gui_parent = (function()
 		local x, c = pcall(function()
@@ -1568,7 +1568,7 @@ function library:CreateWindow(options, ...)
 	library.globals["__Window" .. options.Name] = {
 		submenuOpen = submenuOpen
 	}
-	pepsiLibrary.Name = "     "
+	pepsiLibrary.Name = "gxlfntw"
 	pepsiLibrary.Parent = library.gui_parent
 	pepsiLibrary.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	pepsiLibrary.DisplayOrder = 10
@@ -6931,9 +6931,9 @@ function library:CreateWindow(options, ...)
 		}
 		local daaata = {{"AddTextbox", "__Designer.Textbox.ImageAssetID", backgroundsection, {
 			Name = "Image Asset ID",
-			Placeholder = "rbxassetid://4427304036",
+			Placeholder = "rbxassetid://13263749144",
 			Flag = "__Designer.Background.ImageAssetID",
-			Value = "rbxassetid://4427304036",
+			Value = "rbxassetid://13263749144",
 			Callback = updatecolorsnotween
 		}}, {"AddColorpicker", "__Designer.Colorpicker.ImageColor", backgroundsection, {
 			Name = "Image Color",
@@ -6944,7 +6944,7 @@ function library:CreateWindow(options, ...)
 		}}, {"AddSlider", "__Designer.Slider.ImageTransparency", backgroundsection, {
 			Name = "Image Transparency",
 			Flag = "__Designer.Background.ImageTransparency",
-			Value = 95,
+			Value = 50,
 			Min = 0,
 			Max = 100,
 			Format = "Image Transparency: %s%%",
