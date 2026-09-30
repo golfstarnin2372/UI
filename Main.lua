@@ -12,27 +12,28 @@ local library = {
 		hideKeybind = Enum.KeyCode.F,
 		smoothDragging = false,
 		easingStyle = Enum.EasingStyle.Quart,
-		easingDirection = Enum.EasingDirection.Out
+		easingDirection = Enum.EasingDirection.Out,
+		font = Enum.Font.Gotham
 	},
 	colors = {
-		main = Color3.fromRGB(255, 255, 255),
-		background = Color3.fromRGB(21, 7, 21),
-		outerBorder = Color3.fromRGB(0, 0, 0),
-		innerBorder = Color3.fromRGB(255, 255, 255),
-		topGradient = Color3.fromRGB(0, 0, 0),
-		bottomGradient = Color3.fromRGB(21, 7, 21),
-		sectionBackground = Color3.fromRGB(26, 9, 26),
-		section = Color3.fromRGB(255, 255, 255),
-		otherElementText = Color3.fromRGB(255, 255, 255),
-		elementText = Color3.fromRGB(255, 255, 255),
-		elementBorder = Color3.fromRGB(21, 7, 21),
-		selectedOption = Color3.fromRGB(21, 7, 21),
-		unselectedOption = Color3.fromRGB(21, 7, 21),
-		hoveredOptionTop = Color3.fromRGB(21, 7, 21),
-		unhoveredOptionTop = Color3.fromRGB(21, 7, 21),
-		hoveredOptionBottom = Color3.fromRGB(21, 7, 21),
-		unhoveredOptionBottom = Color3.fromRGB(21, 7, 21),
-		tabText = Color3.fromRGB(255, 255, 255)
+		main = Color3.fromRGB(140, 123, 255),
+		background = Color3.fromRGB(18, 18, 24),
+		outerBorder = Color3.fromRGB(8, 8, 12),
+		innerBorder = Color3.fromRGB(46, 44, 62),
+		topGradient = Color3.fromRGB(32, 31, 43),
+		bottomGradient = Color3.fromRGB(22, 22, 30),
+		sectionBackground = Color3.fromRGB(23, 23, 31),
+		section = Color3.fromRGB(160, 148, 255),
+		otherElementText = Color3.fromRGB(150, 150, 170),
+		elementText = Color3.fromRGB(232, 232, 240),
+		elementBorder = Color3.fromRGB(8, 8, 12),
+		selectedOption = Color3.fromRGB(52, 45, 96),
+		unselectedOption = Color3.fromRGB(36, 32, 66),
+		hoveredOptionTop = Color3.fromRGB(42, 41, 56),
+		unhoveredOptionTop = Color3.fromRGB(32, 31, 43),
+		hoveredOptionBottom = Color3.fromRGB(30, 30, 41),
+		unhoveredOptionBottom = Color3.fromRGB(22, 22, 30),
+		tabText = Color3.fromRGB(200, 200, 215)
 	},
 	gui_parent = (function()
 		local x, c = pcall(function()
@@ -77,9 +78,9 @@ library.subs.darkenColor = darkenColor
 local __runscript = true
 local function wait_check(...)
 	if __runscript then
-		return wait(...)
+		return task.wait(...)
 	else
-		wait()
+		task.wait()
 		return false
 	end
 end
@@ -90,7 +91,7 @@ end
 local lasthidebing = 0
 local temp = game:FindService("MarketplaceService") or game:GetService("MarketplaceService")
 local Marketplace = (temp and (cloneref and cloneref(temp))) or temp
-local resolvevararg, temp = nil
+local resolvevararg = nil
 do
 	local lwr = string.lower
 	function library.defaultSort(a, b)
@@ -233,21 +234,27 @@ library.subs.ResolveID = resolveid
 library.resolvercache = resolvercache
 local colored, colors = library.colored, library.colors
 local tweenService = game:GetService("TweenService")
+local function tween(object, duration, goal)
+	local t = tweenService:Create(object, TweenInfo.new(duration, library.configuration.easingStyle, library.configuration.easingDirection), goal)
+	t:Play()
+	return t
+end
+library.subs.Tween = tween
 local updatecolors, MainScreenGui = nil
 do
 	local MayGC = 0
-	spawn(function()
+	task.defer(function()
 		local IsDescendantOf = game.IsDescendantOf
 		local RemoveTable = table.remove
 		while wait_check() do
 			while shared.NO_LIB_GC do
-				wait(20)
+				task.wait(20)
 				if wait_check() then
 				else
 					return
 				end
 			end
-			wait(10)
+			task.wait(10)
 			local Breathe = 30
 			for DataIndex = #colored, 1, -1 do
 				if MayGC > 0 then
@@ -302,9 +309,9 @@ do
 	local function colortwee(data, tweenit)
 		local cclr = colors[data[3]]
 		local darkness = data[4]
-		tweenService:Create(data[1], TweenInfo.new(tweenit, library.configuration.easingStyle, library.configuration.easingDirection), {
+		tween(data[1], tweenit, {
 			[data[2]] = (darkness and darkness ~= 1 and darkenColor(cclr, darkness)) or cclr
-		}):Play()
+		})
 	end
 	local function colordarktwee(data)
 		local cclr = colors[data[3]]
@@ -339,8 +346,18 @@ do
 		MayGC -= 1
 	end
 end
+local colorUpdateQueued = false
 local function updatecolorsnotween()
+	colorUpdateQueued = false
 	updatecolors()
+end
+-- Several theme colors can change in the same frame (e.g. rainbow designer colors);
+-- repaint the whole UI once instead of once per change.
+local function queuecolorupdate()
+	if not colorUpdateQueued then
+		colorUpdateQueued = true
+		task.defer(updatecolorsnotween)
+	end
 end
 library.subs.updatecolors = updatecolors
 library.colors = setmetatable({}, {
@@ -348,7 +365,7 @@ library.colors = setmetatable({}, {
 	__newindex = function(_, k, v)
 		if colors[k] ~= v then
 			colors[k] = v
-			spawn(updatecolorsnotween)
+			queuecolorupdate()
 		end
 	end
 })
@@ -476,7 +493,7 @@ local function unloadall()
 			b = b - 1
 			if b < 0 then
 				b = 50
-				wait(warn("Looped 50 times while unloading....?"))
+				task.wait(warn("Looped 50 times while unloading....?"))
 			end
 			local v = shared.libraries[1]
 			if v and v.unload and (type(v.unload) == "function") then
@@ -578,7 +595,7 @@ local function getresolver(listt, filter, method, _)
 					if metype == "function" then
 						y, u = pcall(method, listt, unpack(args))
 					elseif metype == "string" then
-						local y, u = pcall(function()
+						y, u = pcall(function()
 							return listt[method](listt, unpack(args))
 						end)
 					else
@@ -664,7 +681,6 @@ local function resetall()
 	end)
 end
 library.ResetAll = resetall
-local textService = game:GetService("TextService")
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 local LP = playersservice.LocalPlayer
@@ -748,9 +764,9 @@ local function makeDraggable(topBarObject, object)
 		if input == dragInput and dragging then
 			local delta = input.Position - dragStart
 			if not isDraggingSomething and library.configuration.smoothDragging then
-				tweenService:Create(object, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+				tween(object, 0.25, {
 					Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X, startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
-				}):Play()
+				})
 			elseif not isDraggingSomething and not library.configuration.smoothDragging then
 				object.Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X, startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
 			end
@@ -841,7 +857,7 @@ do
 			Text.AnchorPoint = Vector2.new(0.5, 0.5)
 			Text.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			Text.BackgroundTransparency = 1
-			Text.Font = Enum.Font.Code
+			Text.Font = library.configuration.font
 			Text.FontSize = Enum.FontSize.Size14
 			Text.Name = "Text"
 			Text.Parent = Border_2
@@ -1081,7 +1097,7 @@ do
 				Splitter.Size = UDim2.new(1, 0, 0, 1)
 				Title.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 				Title.BackgroundTransparency = 1
-				Title.Font = Enum.Font.Code
+				Title.Font = library.configuration.font
 				Title.FontSize = Enum.FontSize.Size18
 				Title.Parent = InnerBorder
 				Title.Position = UDim2.new(0, 6, 0, 4)
@@ -1093,7 +1109,7 @@ do
 				Title.TextXAlignment = Enum.TextXAlignment.Left
 				Description.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 				Description.BackgroundTransparency = 1
-				Description.Font = Enum.Font.Code
+				Description.Font = library.configuration.font
 				Description.FontSize = Enum.FontSize.Size14
 				Description.Name = "Description"
 				Description.Parent = InnerBorder
@@ -1212,7 +1228,7 @@ do
 						Data.Order = Order or Data.Order
 						local UpdateFunc = Data.Update
 						if UpdateFunc then
-							spawn(UpdateFunc)
+							task.defer(UpdateFunc)
 						else
 							local Frame = Data.ButtonObject
 							if Frame then
@@ -1285,7 +1301,7 @@ do
 		local os_clock = os.clock
 		local Notifications = {}
 		library.Notifications = Notifications
-		spawn(function()
+		task.defer(function()
 			local v1, vtop, htop = Enum.FillDirection.Vertical, Enum.VerticalAlignment.Top, Enum.HorizontalAlignment.Center
 			while wait_check() do
 				local Len = #Notifications
@@ -1392,7 +1408,7 @@ do
 			Border_2.Size = UDim2.new(1, 0, 1, 0)
 			Text.AnchorPoint = Vector2.new(0, 0.5)
 			Text.BackgroundTransparency = 1
-			Text.Font = Enum.Font.Code
+			Text.Font = library.configuration.font
 			Text.FontSize = Enum.FontSize.Size14
 			Text.Name = "Text"
 			Text.Parent = Border_2
@@ -1544,7 +1560,6 @@ end
 function library:CreateWindow(options, ...)
 	options = (options and type(options) == "string" and resolvevararg("Window", options, ...)) or options
 	local homepage = nil
-	local windowoptions = options
 	local windowName = options.Name or "Unnamed Window"
 	options.Name = windowName
 	if windowName and #windowName > 0 and library.WorkspaceName == "Pepsi Lib" then
@@ -1653,7 +1668,7 @@ function library:CreateWindow(options, ...)
 	headline.BackgroundColor3 = Color3.new(1, 1, 1)
 	headline.BackgroundTransparency = 1
 	headline.LayoutOrder = 1
-	headline.Font = Enum.Font.Code
+	headline.Font = library.configuration.font
 	headline.Text = (windowName and tostring(windowName)) or "???"
 	headline.TextColor3 = library.colors.main
 	colored[1 + #colored] = {headline, "TextColor3", "main"}
@@ -1668,7 +1683,7 @@ function library:CreateWindow(options, ...)
 	splitter.BackgroundTransparency = 1
 	splitter.LayoutOrder = 2
 	splitter.Size = UDim2:new(6, 1)
-	splitter.Font = Enum.Font.Code
+	splitter.Font = library.configuration.font
 	splitter.Text = "|"
 	splitter.TextColor3 = library.colors.tabText
 	colored[1 + #colored] = {splitter, "TextColor3", "tabText"}
@@ -1721,12 +1736,12 @@ function library:CreateWindow(options, ...)
 		return main.Visible
 	end
 	function windowFunctions:MoveTabSlider(tabObject)
-		spawn(function()
+		task.defer(function()
 			tabSlider.Visible = true
-			tweenService:Create(tabSlider, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+			tween(tabSlider, 0.35, {
 				Size = UDim2.fromOffset(tabObject.AbsoluteSize.X, 1),
 				Position = UDim2.fromOffset(tabObject.AbsolutePosition.X, tabObject.AbsolutePosition.Y + tabObject.AbsoluteSize.Y) - UDim2.fromOffset(main.AbsolutePosition.X, main.AbsolutePosition.Y)
-			}):Play()
+			})
 		end)
 	end
 	windowFunctions.LastTab = nil
@@ -1762,7 +1777,7 @@ function library:CreateWindow(options, ...)
 		else
 			colored_newTab_TextColor3 = {newTab, "TextColor3", "tabText"}
 			colored[1 + #colored] = colored_newTab_TextColor3
-			newTab.Font = Enum.Font.Code
+			newTab.Font = library.configuration.font
 			newTab.Text = (tabName and tostring(tabName)) or "???"
 			if windowFunctions.tabCount ~= 1 then
 				colored_newTab_TextColor3[4] = 1.35
@@ -1794,9 +1809,9 @@ function library:CreateWindow(options, ...)
 				end
 				windowFunctions:MoveTabSlider(newTab)
 				if windowFunctions.selected.button.ClassName == "TextButton" then
-					tweenService:Create(windowFunctions.selected.button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(windowFunctions.selected.button, 0.35, {
 						TextColor3 = darkenColor(library.colors.tabText, 1.35)
-					}):Play()
+					})
 				end
 				if colored_newTab_TextColor3 then
 					colored_newTab_TextColor3[4] = nil
@@ -1805,9 +1820,9 @@ function library:CreateWindow(options, ...)
 				windowFunctions.selected.button = newTab
 				windowFunctions.selected.holder = newTabHolder
 				if windowFunctions.selected.button.ClassName == "TextButton" then
-					tweenService:Create(windowFunctions.selected.button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(windowFunctions.selected.button, 0.35, {
 						TextColor3 = library.colors.tabText
-					}):Play()
+					})
 				end
 				windowFunctions.selected.holder.Visible = true
 				windowFunctions.LastTab = colored_newTab_TextColor3
@@ -1929,7 +1944,7 @@ function library:CreateWindow(options, ...)
 			sectionHeadline.BackgroundTransparency = 1
 			sectionHeadline.Position = UDim2.fromOffset(18, -8)
 			sectionHeadline.ZIndex = 2
-			sectionHeadline.Font = Enum.Font.Code
+			sectionHeadline.Font = library.configuration.font
 			sectionHeadline.LineHeight = 1.15
 			sectionHeadline.Text = (sectionName and sectionName or "???")
 			sectionHeadline.TextColor3 = library.colors.section
@@ -2053,7 +2068,7 @@ function library:CreateWindow(options, ...)
 				toggleHeadline.BackgroundTransparency = 1
 				toggleHeadline.Position = UDim2.fromScale(0.123, 0.165842161)
 				toggleHeadline.Size = UDim2.fromOffset(170, 11)
-				toggleHeadline.Font = Enum.Font.Code
+				toggleHeadline.Font = library.configuration.font
 				toggleHeadline.Text = toggleName or "???"
 				toggleHeadline.TextColor3 = library.colors.elementText
 				local colored_toggleHeadline_TextColor3 = {toggleHeadline, "TextColor3", "elementText", (lockedup and 0.5) or nil}
@@ -2088,17 +2103,17 @@ function library:CreateWindow(options, ...)
 							colored_toggleInner_BackgroundColor3[4] = (newStatus and 1.5) or nil
 							colored_toggleInner_ImageColor3[3] = (newStatus and "main") or "bottomGradient"
 							colored_toggleInner_ImageColor3[4] = (newStatus and 2.5) or nil
-							tweenService:Create(toggleInner, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(toggleInner, 0.35, {
 								BackgroundColor3 = (newStatus and darkenColor(library.colors.main, 1.5)) or library.colors.topGradient,
 								ImageColor3 = (newStatus and darkenColor(library.colors.main, 2.5)) or library.colors.bottomGradient
-							}):Play()
+							})
 							task.spawn(callback, newStatus, last_v)
 						end
 					end
 					return newStatus
 				end
 				options.Keybind = options.Keybind or options.Key or options.KeyBind
-				local haskbflag, kbUpdate, kbData = nil, nil, nil
+				local kbUpdate, kbData = nil, nil
 				if options.Keybind then
 					local options = options.Keybind
 					local htyp = typeof(options)
@@ -2119,7 +2134,6 @@ function library:CreateWindow(options, ...)
 					if elements[kbflag] ~= nil or kbflag == flagName then
 						warn(debug.traceback("Warning! Re-used flag '" .. kbflag .. "'", 3))
 					end
-					haskbflag = kbflag
 					library.keyHandler = keyHandler
 					local keyHandler = options.KeyNames or keyHandler
 					local bindedKey = presetKeybind
@@ -2147,7 +2161,7 @@ function library:CreateWindow(options, ...)
 					keybindButton.Position = UDim2.fromScale(0.598130822, 0.184210524)
 					keybindButton.Selectable = false
 					keybindButton.Size = UDim2.fromOffset(46, 12)
-					keybindButton.Font = Enum.Font.Code
+					keybindButton.Font = library.configuration.font
 					keybindButton.Text = keyName or (presetKeybind and tostring(presetKeybind):gsub("Enum.KeyCode.", "")) or "[NONE]"
 					keybindButton.TextColor3 = library.colors.otherElementText
 					local colored_keybindButton_TextColor3 = {keybindButton, "TextColor3", "otherElementText"}
@@ -2163,9 +2177,9 @@ function library:CreateWindow(options, ...)
 						local old_texts = keybindButton.Text
 						colored_keybindButton_TextColor3[3] = "main"
 						colored_keybindButton_TextColor3[4] = nil
-						tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(keybindButton, 0.35, {
 							TextColor3 = library.colors.main
-						}):Play()
+						})
 						if klast_v then
 							keybindButton.Text = "(Was " .. (klast_v and tostring(klast_v):gsub("Enum.KeyCode.", "") or "[NONE]") .. ") [...]"
 						else
@@ -2191,9 +2205,9 @@ function library:CreateWindow(options, ...)
 										justBinded = true
 										colored_keybindButton_TextColor3[3] = "otherElementText"
 										colored_keybindButton_TextColor3[4] = nil
-										tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+										tween(keybindButton, 0.35, {
 											TextColor3 = library.colors.otherElementText
-										}):Play()
+										})
 										receivingKey:Disconnect()
 									end
 									if callback and klast_v ~= bindedKey then
@@ -2212,9 +2226,9 @@ function library:CreateWindow(options, ...)
 									justBinded = true
 									colored_keybindButton_TextColor3[3] = "otherElementText"
 									colored_keybindButton_TextColor3[4] = nil
-									tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+									tween(keybindButton, 0.35, {
 										TextColor3 = library.colors.otherElementText
-									}):Play()
+									})
 									receivingKey:Disconnect()
 									if callback and klast_v ~= bindedKey then
 										task.spawn(callback, bindedKey, klast_v)
@@ -2228,9 +2242,9 @@ function library:CreateWindow(options, ...)
 							keybindButton.Text = old_texts
 							colored_keybindButton_TextColor3[3] = "otherElementText"
 							colored_keybindButton_TextColor3[4] = nil
-							tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(keybindButton, 0.35, {
 								TextColor3 = library.colors.otherElementText
-							}):Play()
+							})
 							receivingKey:Disconnect()
 							if callback and klast_v ~= bindedKey then
 								task.spawn(callback, bindedKey, klast_v)
@@ -2262,7 +2276,7 @@ function library:CreateWindow(options, ...)
 					}
 					library.signals[1 + #library.signals] = userInputService.InputBegan:Connect(function(input, chatting)
 						if justBinded then
-							wait(0.1)
+							task.wait(0.1)
 							justBinded = false
 							return
 						elseif lockedup then
@@ -2283,10 +2297,6 @@ function library:CreateWindow(options, ...)
 									end
 									Set(true)
 									local now = os.clock()
-									local waittil = nil
-									if mode == "dynamic" then
-										waittil = Instance.new("BindableEvent")
-									end
 									local xconnection = nil
 									xconnection = userInputService.InputEnded:Connect(function(input, chatting)
 										chatting = chatting or userInputService:GetFocusedTextBox()
@@ -2323,9 +2333,9 @@ function library:CreateWindow(options, ...)
 						justBinded = true
 						colored_keybindButton_TextColor3[3] = "otherElementText"
 						colored_keybindButton_TextColor3[4] = nil
-						tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(keybindButton, 0.35, {
 							TextColor3 = library.colors.otherElementText
-						}):Play()
+						})
 						if callback and (last_v ~= key or options.AllowDuplicateCalls) then
 							task.spawn(callback, key, last_v)
 						end
@@ -2349,9 +2359,9 @@ function library:CreateWindow(options, ...)
 						keybindButton.Size = UDim2.fromOffset(textToSize(keybindButton).X + 4, 12)
 						colored_keybindButton_TextColor3[3] = "otherElementText"
 						colored_keybindButton_TextColor3[4] = (lockedup and 2.5) or nil
-						tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(keybindButton, 0.35, {
 							TextColor3 = (lockedup and darkenColor(library.colors.otherElementText, colored_keybindButton_TextColor3[4])) or library.colors.otherElementText
-						}):Play()
+						})
 						return key
 					end
 					kbUpdate = UpdateKb
@@ -2407,10 +2417,10 @@ function library:CreateWindow(options, ...)
 						colored_toggleInner_BackgroundColor3[4] = (newval and 1.5) or nil
 						colored_toggleInner_ImageColor3[3] = (newval and "main") or "bottomGradient"
 						colored_toggleInner_ImageColor3[4] = (newval and 2.5) or nil
-						tweenService:Create(toggleInner, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(toggleInner, 0.35, {
 							BackgroundColor3 = (newval and darkenColor(library.colors.main, 1.5)) or library.colors.topGradient,
 							ImageColor3 = (newval and darkenColor(library.colors.main, 2.5)) or library.colors.bottomGradient
-						}):Play()
+						})
 						if callback then
 							task.spawn(callback, newval)
 						end
@@ -2421,30 +2431,30 @@ function library:CreateWindow(options, ...)
 					colored_toggle_BackgroundColor3[4] = 1.5
 					colored_toggle_ImageColor3[3] = "main"
 					colored_toggle_ImageColor3[4] = 2.5
-					tweenService:Create(toggle, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(toggle, 0.35, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end)
 				library.signals[1 + #library.signals] = newToggle.MouseLeave:Connect(function()
 					colored_toggle_BackgroundColor3[3] = "topGradient"
 					colored_toggle_BackgroundColor3[4] = nil
 					colored_toggle_ImageColor3[3] = "bottomGradient"
 					colored_toggle_ImageColor3[4] = nil
-					tweenService:Create(toggle, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(toggle, 0.35, {
 						BackgroundColor3 = library.colors.topGradient,
 						ImageColor3 = library.colors.bottomGradient
-					}):Play()
+					})
 				end)
 				if library_flags[flagName] then
 					colored_toggleInner_BackgroundColor3[3] = "main"
 					colored_toggleInner_BackgroundColor3[4] = 1.5
 					colored_toggleInner_ImageColor3[3] = "main"
 					colored_toggleInner_ImageColor3[4] = 2.5
-					tweenService:Create(toggleInner, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(toggleInner, 0.35, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end
 				local function Update()
 					toggleName, callback = options.Name or toggleName, options.Callback
@@ -2457,14 +2467,14 @@ function library:CreateWindow(options, ...)
 						colored_toggleInner_BackgroundColor3[4] = 1 + (colored_toggleInner_BackgroundColor3[4] or 1)
 						colored_toggleInner_ImageColor3[4] = 1 + (colored_toggleInner_ImageColor3[4] or 1)
 					end
-					tweenService:Create(toggleInner, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(toggleInner, 0.35, {
 						BackgroundColor3 = (boolstatus and darkenColor(library.colors.main, colored_toggleInner_BackgroundColor3[4])) or library.colors.topGradient,
 						ImageColor3 = (boolstatus and darkenColor(library.colors.main, colored_toggleInner_ImageColor3[4])) or library.colors.bottomGradient
-					}):Play()
+					})
 					colored_toggleHeadline_TextColor3[4] = (lockedup and 2.5) or nil
-					tweenService:Create(toggleHeadline, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(toggleHeadline, 0.35, {
 						TextColor3 = (lockedup and darkenColor(library.colors.elementText, colored_toggleHeadline_TextColor3[4])) or library.colors.elementText
-					}):Play()
+					})
 					toggleHeadline.Text = toggleName or "???"
 					return boolstatus
 				end
@@ -2611,7 +2621,7 @@ function library:CreateWindow(options, ...)
 					realButton.BackgroundTransparency = 1
 					realButton.Size = UDim2.fromScale(1, 1)
 					realButton.ZIndex = 5
-					realButton.Font = Enum.Font.Code
+					realButton.Font = library.configuration.font
 					realButton.Text = (buttonName and tostring(buttonName)) or "???"
 					realButton.TextColor3 = library.colors.elementText
 					local colored_realButton_TextColor3 = {realButton, "TextColor3", "elementText"}
@@ -2694,10 +2704,10 @@ function library:CreateWindow(options, ...)
 						colored_button_BackgroundColor3[4] = 1.5
 						colored_button_ImageColor3[3] = "main"
 						colored_button_ImageColor3[4] = 2.5
-						tweenService:Create(button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(button, 0.35, {
 							BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 							ImageColor3 = darkenColor(library.colors.main, 2.5)
-						}):Play()
+						})
 					end)
 					library.signals[1 + #library.signals] = button.MouseLeave:Connect(function()
 						imin = nil
@@ -2705,10 +2715,10 @@ function library:CreateWindow(options, ...)
 						colored_button_BackgroundColor3[4] = nil
 						colored_button_ImageColor3[3] = "bottomGradient"
 						colored_button_ImageColor3[4] = nil
-						tweenService:Create(button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(button, 0.35, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 					end)
 					local function Update(Recursive)
 						buttonName, callback = options.Name or buttonName, options.Callback or (warn(debug.traceback("AddButton missing callback. Name:" .. (options.Name or buttonName or "No Name"), 2)) and nil) or function()
@@ -2727,17 +2737,17 @@ function library:CreateWindow(options, ...)
 							colored_buttonInner_ImageColor3[4] = 1.25
 							colored_realButton_TextColor3[4] = 1.75
 						end
-						tweenService:Create(button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(button, 0.35, {
 							BackgroundColor3 = (imin and darkenColor(library.colors.main, colored_button_BackgroundColor3[4])) or darkenColor(library.colors.topGradient, colored_button_BackgroundColor3[4]),
 							ImageColor3 = (imin and darkenColor(library.colors.main, colored_button_ImageColor3[4])) or darkenColor(library.colors.bottomGradient, colored_button_ImageColor3[4])
-						}):Play()
-						tweenService:Create(buttonInner, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						})
+						tween(buttonInner, 0.35, {
 							BackgroundColor3 = darkenColor(library.colors.topGradient, colored_buttonInner_BackgroundColor3[4]),
 							ImageColor3 = darkenColor(library.colors.bottomGradient, colored_buttonInner_ImageColor3[4])
-						}):Play()
-						tweenService:Create(realButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						})
+						tween(realButton, 0.35, {
 							TextColor3 = darkenColor(library.colors.elementText, colored_realButton_TextColor3[4])
-						}):Play()
+						})
 						realButton.Text = (buttonName and tostring(buttonName)) or "???"
 						local newtextsize = textToSize(realButton).X + 14
 						if textsize ~= newtextsize then
@@ -2975,7 +2985,7 @@ function library:CreateWindow(options, ...)
 				realTextbox.Position = UDim2.new(0.0295485705)
 				realTextbox.Size = UDim2.fromScale(0.97, 1)
 				realTextbox.ZIndex = 5
-				realTextbox.Font = Enum.Font.Code
+				realTextbox.Font = library.configuration.font
 				realTextbox.LineHeight = 1.15
 				realTextbox.Text = tostring(presetValue)
 				realTextbox.TextColor3 = library.colors.otherElementText
@@ -3008,7 +3018,7 @@ function library:CreateWindow(options, ...)
 				textboxHeadline.Selectable = true
 				textboxHeadline.Size = UDim2.fromOffset(206, 20)
 				textboxHeadline.ZIndex = 5
-				textboxHeadline.Font = Enum.Font.Code
+				textboxHeadline.Font = library.configuration.font
 				textboxHeadline.LineHeight = 1.15
 				textboxHeadline.Text = (textboxName and tostring(textboxName)) or "???"
 				textboxHeadline.TextColor3 = library.colors.elementText
@@ -3072,20 +3082,20 @@ function library:CreateWindow(options, ...)
 					colored_textbox_BackgroundColor3[4] = 1.5
 					colored_textbox_ImageColor3[3] = "main"
 					colored_textbox_ImageColor3[4] = 2.5
-					tweenService:Create(textbox, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(textbox, 0.35, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end)
 				library.signals[1 + #library.signals] = newTextbox.MouseLeave:Connect(function()
 					colored_textbox_BackgroundColor3[3] = "topGradient"
 					colored_textbox_BackgroundColor3[4] = nil
 					colored_textbox_ImageColor3[3] = "bottomGradient"
 					colored_textbox_ImageColor3[4] = nil
-					tweenService:Create(textbox, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(textbox, 0.35, {
 						BackgroundColor3 = library.colors.topGradient,
 						ImageColor3 = library.colors.bottomGradient
-					}):Play()
+					})
 				end)
 				local function set(t, str)
 					if nil == str and t ~= nil then
@@ -3201,7 +3211,7 @@ function library:CreateWindow(options, ...)
 				keybindHeadline.BackgroundTransparency = 1
 				keybindHeadline.Position = UDim2.fromScale(0.031, 0.165842161)
 				keybindHeadline.Size = UDim2.fromOffset(215, 12)
-				keybindHeadline.Font = Enum.Font.Code
+				keybindHeadline.Font = library.configuration.font
 				keybindHeadline.Text = (keybindName and tostring(keybindName)) or "???"
 				keybindHeadline.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {keybindHeadline, "TextColor3", "elementText"}
@@ -3227,7 +3237,7 @@ function library:CreateWindow(options, ...)
 				keybindButton.Position = UDim2.fromScale(0.598130822, 0.184210524)
 				keybindButton.Selectable = false
 				keybindButton.Size = UDim2.fromOffset(46, 12)
-				keybindButton.Font = Enum.Font.Code
+				keybindButton.Font = library.configuration.font
 				keybindButton.Text = (presetKeybind and tostring(presetKeybind):gsub("Enum.KeyCode.", "") or "[NONE]")
 				keybindButton.TextColor3 = library.colors.otherElementText
 				local colored_keybindButton_TextColor3 = {keybindButton, "TextColor3", "otherElementText"}
@@ -3246,9 +3256,9 @@ function library:CreateWindow(options, ...)
 					local old_texts = keybindButton.Text
 					colored_keybindButton_TextColor3[3] = "main"
 					colored_keybindButton_TextColor3[4] = nil
-					tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(keybindButton, 0.35, {
 						TextColor3 = library.colors.main
-					}):Play()
+					})
 					if last_v then
 						keybindButton.Text = "(Was " .. (last_v and tostring(last_v):gsub("Enum.KeyCode.", "") or "[NONE]") .. ") [...]"
 					else
@@ -3271,16 +3281,16 @@ function library:CreateWindow(options, ...)
 									justBinded = true
 									colored_keybindButton_TextColor3[3] = "otherElementText"
 									colored_keybindButton_TextColor3[4] = nil
-									tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+									tween(keybindButton, 0.35, {
 										TextColor3 = library.colors.otherElementText
-									}):Play()
+									})
 									receivingKey:Disconnect()
 								end
 								if callback and last_v ~= bindedKey then
 									task.spawn(callback, bindedKey, last_v)
 								end
 								if IsCore then
-									delay(0.1, function()
+									task.delay(0.1, function()
 										if IgnoreCoreInputs and (IgnoreCoreInputs == IgnoreKey) then
 											IgnoreCoreInputs = nil
 										end
@@ -3299,15 +3309,15 @@ function library:CreateWindow(options, ...)
 								justBinded = true
 								colored_keybindButton_TextColor3[3] = "otherElementText"
 								colored_keybindButton_TextColor3[4] = nil
-								tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(keybindButton, 0.35, {
 									TextColor3 = library.colors.otherElementText
-								}):Play()
+								})
 								receivingKey:Disconnect()
 								if callback and last_v ~= bindedKey then
 									task.spawn(callback, bindedKey, last_v)
 								end
 								if IsCore then
-									delay(0.1, function()
+									task.delay(0.1, function()
 										if IgnoreCoreInputs and (IgnoreCoreInputs == IgnoreKey) then
 											IgnoreCoreInputs = nil
 										end
@@ -3322,9 +3332,9 @@ function library:CreateWindow(options, ...)
 						keybindButton.Text = old_texts
 						colored_keybindButton_TextColor3[3] = "otherElementText"
 						colored_keybindButton_TextColor3[4] = nil
-						tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(keybindButton, 0.35, {
 							TextColor3 = library.colors.otherElementText
-						}):Play()
+						})
 						receivingKey:Disconnect()
 						if callback and last_v ~= bindedKey then
 							task.spawn(callback, bindedKey, last_v)
@@ -3371,9 +3381,9 @@ function library:CreateWindow(options, ...)
 					justBinded = true
 					colored_keybindButton_TextColor3[3] = "otherElementText"
 					colored_keybindButton_TextColor3[4] = nil
-					tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(keybindButton, 0.35, {
 						TextColor3 = library.colors.otherElementText
-					}):Play()
+					})
 					if callback and ((last_v ~= key) or options.AllowDuplicateCalls) then
 						task.spawn(callback, key, last_v)
 					end
@@ -3396,9 +3406,9 @@ function library:CreateWindow(options, ...)
 					keybindButton.Size = UDim2.fromOffset(textToSize(keybindButton).X + 4, 12)
 					colored_keybindButton_TextColor3[3] = "otherElementText"
 					colored_keybindButton_TextColor3[4] = nil
-					tweenService:Create(keybindButton, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(keybindButton, 0.35, {
 						TextColor3 = library.colors.otherElementText
-					}):Play()
+					})
 					keybindHeadline.Text = (keybindName and tostring(keybindName)) or "???"
 					return key
 				end
@@ -3460,7 +3470,6 @@ function library:CreateWindow(options, ...)
 				local newLabel = Instance_new("Frame")
 				local labelHeadline = Instance_new("TextLabel")
 				local labelPositioner = Instance_new("Frame")
-				local labelButton = Instance_new("TextButton")
 				newLabel.Name = "newLabel"
 				newLabel.Parent = sectionHolder
 				newLabel.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -3472,7 +3481,7 @@ function library:CreateWindow(options, ...)
 				labelHeadline.BackgroundTransparency = 1
 				labelHeadline.Position = UDim2.fromScale(0.031, 0.165842161)
 				labelHeadline.Size = UDim2.fromOffset(215, 12)
-				labelHeadline.Font = Enum.Font.Code
+				labelHeadline.Font = library.configuration.font
 				labelHeadline.Text = (labelName and tostring(labelName)) or "Empty Text"
 				labelHeadline.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {labelHeadline, "TextColor3", "elementText"}
@@ -3628,7 +3637,7 @@ function library:CreateWindow(options, ...)
 				sliderHeadline.Selectable = true
 				sliderHeadline.Size = UDim2.fromOffset(206, 20)
 				sliderHeadline.ZIndex = 5
-				sliderHeadline.Font = Enum.Font.Code
+				sliderHeadline.Font = library.configuration.font
 				sliderHeadline.LineHeight = 1.15
 				sliderHeadline.Text = resolvedisplay(startingValue)
 				sliderHeadline.TextColor3 = library.colors.elementText
@@ -3649,9 +3658,9 @@ function library:CreateWindow(options, ...)
 						end
 						do
 							local newValue = (options.IllegalInput and math.clamp(newValue, minValue or -math.huge, maxValue or math.huge)) or newValue
-							tweenService:Create(sliderColored, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(sliderColored, 0.25, {
 								Size = UDim2.fromScale(((newValue or minValue) - minValue) / (maxValue - minValue), 1)
-							}):Play()
+							})
 						end
 						sliderHeadline.Text = resolvedisplay(newValue, last_val)
 						if usetextbox and realTextbox then
@@ -3715,7 +3724,7 @@ function library:CreateWindow(options, ...)
 					realTextbox.Size = UDim2.fromScale(0.97, 1)
 					realTextbox.ZIndex = 5
 					realTextbox.ClearTextOnFocus = false
-					realTextbox.Font = Enum.Font.Code
+					realTextbox.Font = library.configuration.font
 					realTextbox.LineHeight = 1.15
 					realTextbox.Text = tostring(presetValue)
 					realTextbox.TextColor3 = library.colors.otherElementText
@@ -3761,20 +3770,20 @@ function library:CreateWindow(options, ...)
 						colored_textbox_BackgroundColor3[4] = 1.5
 						colored_textbox_ImageColor3[3] = "main"
 						colored_textbox_ImageColor3[4] = 2.5
-						tweenService:Create(textbox, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(textbox, 0.35, {
 							BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 							ImageColor3 = darkenColor(library.colors.main, 2.5)
-						}):Play()
+						})
 					end)
 					library.signals[1 + #library.signals] = textbox.MouseLeave:Connect(function()
 						colored_textbox_BackgroundColor3[3] = "topGradient"
 						colored_textbox_BackgroundColor3[4] = nil
 						colored_textbox_ImageColor3[3] = "bottomGradient"
 						colored_textbox_ImageColor3[4] = nil
-						tweenService:Create(textbox, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(textbox, 0.35, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 					end)
 				end
 				sectionFunctions:Update()
@@ -3783,27 +3792,27 @@ function library:CreateWindow(options, ...)
 					colored_slider_BackgroundColor3[4] = 1.5
 					colored_slider_ImageColor3[3] = "main"
 					colored_slider_ImageColor3[4] = 2.5
-					tweenService:Create(slider, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(slider, 0.35, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end)
 				library.signals[1 + #library.signals] = slider.MouseLeave:Connect(function()
 					colored_slider_BackgroundColor3[3] = "topGradient"
 					colored_slider_BackgroundColor3[4] = nil
 					colored_slider_ImageColor3[3] = "bottomGradient"
 					colored_slider_ImageColor3[4] = nil
-					tweenService:Create(slider, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(slider, 0.35, {
 						BackgroundColor3 = library.colors.topGradient,
 						ImageColor3 = library.colors.bottomGradient
-					}):Play()
+					})
 				end)
 				local function sliding(input, sb, sc)
 					local last_val = library_flags[flagName]
 					local pos = UDim2.fromScale(math.clamp((input.Position.X - sb.AbsolutePosition.X) / sb.AbsoluteSize.X, 0, 1), 1)
-					tweenService:Create(sc, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(sc, 0.25, {
 						Size = pos
-					}):Play()
+					})
 					local sliderValue = nil
 					if decimalprecision then
 						sliderValue = tonumber(string.format("%0." .. decimalprecision .. "f", ((pos.X.Scale * maxValue) / maxValue) * (maxValue - minValue) + minValue))
@@ -3854,9 +3863,9 @@ function library:CreateWindow(options, ...)
 					local newValue = library_flags[flagName]
 					do
 						local newValue = math.clamp(newValue, options.Min or -math.huge, options.Max or math.huge)
-						tweenService:Create(sliderColored, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(sliderColored, 0.25, {
 							Size = UDim2.fromScale(((newValue or minValue) - minValue) / (maxValue - minValue), 1)
-						}):Play()
+						})
 					end
 					sliderHeadline.Text = resolvedisplay(newValue, last_val)
 					if usetextbox and realTextbox then
@@ -4035,7 +4044,7 @@ function library:CreateWindow(options, ...)
 				dropdownSelection.Position = UDim2.new(0.0295485705)
 				dropdownSelection.Size = UDim2.fromScale(0.85, 1)
 				dropdownSelection.ZIndex = 5
-				dropdownSelection.Font = Enum.Font.Code
+				dropdownSelection.Font = library.configuration.font
 				dropdownSelection.LineHeight = 1.15
 				dropdownSelection.Text = (passed_multiselect == "string" and multiselect) or tostring((multiselect and (blankstring or "Select Item(s)")) or (selectedOption and tostring(selectedOption)) or blankstring or "No Blank String")
 				dropdownSelection.TextColor3 = library.colors.otherElementText
@@ -4049,7 +4058,7 @@ function library:CreateWindow(options, ...)
 				dropdownHeadline.BackgroundTransparency = 1
 				dropdownHeadline.Position = UDim2.fromScale(0.034, 0.03)
 				dropdownHeadline.Size = UDim2.fromOffset(167, 11)
-				dropdownHeadline.Font = Enum.Font.Code
+				dropdownHeadline.Font = library.configuration.font
 				dropdownHeadline.Text = (dropdownName and tostring(dropdownName)) or "???"
 				dropdownHeadline.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {dropdownHeadline, "TextColor3", "elementText"}
@@ -4106,10 +4115,10 @@ function library:CreateWindow(options, ...)
 					colored_dropdown_BackgroundColor3[4] = 1.5
 					colored_dropdown_ImageColor3[3] = "main"
 					colored_dropdown_ImageColor3[4] = 2.5
-					tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(dropdown, 0.25, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end)
 				library.signals[1 + #library.signals] = newDropdown.MouseLeave:Connect(function()
 					if not dropdownEnabled then
@@ -4117,10 +4126,10 @@ function library:CreateWindow(options, ...)
 						colored_dropdown_BackgroundColor3[4] = nil
 						colored_dropdown_ImageColor3[3] = "bottomGradient"
 						colored_dropdown_ImageColor3[4] = nil
-						tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(dropdown, 0.25, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 					end
 				end)
 				local function UpdateDropdownHolder()
@@ -4232,7 +4241,7 @@ function library:CreateWindow(options, ...)
 							optionButton.Selectable = true
 							optionButton.Size = UDim2.new(1, -10, 1)
 							optionButton.ZIndex = 5
-							optionButton.Font = Enum.Font.Code
+							optionButton.Font = library.configuration.font
 							optionButton.Text = (togged and (" " .. stringed)) or stringed
 							optionButton.TextColor3 = (togged and library.colors.main) or library.colors.otherElementText
 							optionButton.TextSize = 14
@@ -4305,10 +4314,10 @@ function library:CreateWindow(options, ...)
 											colored_dropdown_BackgroundColor3[4] = nil
 											colored_dropdown_ImageColor3[3] = "bottomGradient"
 											colored_dropdown_ImageColor3[4] = nil
-											tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+											tween(dropdown, 0.35, {
 												BackgroundColor3 = library.colors.topGradient,
 												ImageColor3 = library.colors.bottomGradient
-											}):Play()
+											})
 											library_flags[flagName] = selectedOption
 											if options.Location then
 												options.Location[options.LocationFlag or flagName] = selectedOption
@@ -4338,10 +4347,10 @@ function library:CreateWindow(options, ...)
 											colored_dropdown_BackgroundColor3[4] = nil
 											colored_dropdown_ImageColor3[3] = "bottomGradient"
 											colored_dropdown_ImageColor3[4] = nil
-											tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+											tween(dropdown, 0.35, {
 												BackgroundColor3 = library.colors.topGradient,
 												ImageColor3 = library.colors.bottomGradient
-											}):Play()
+											})
 											dropdownHolderFrame.Visible = false
 										end
 									end
@@ -4351,17 +4360,17 @@ function library:CreateWindow(options, ...)
 								end
 							end)
 							library.signals[1 + #library.signals] = optionButton.MouseEnter:Connect(function()
-								tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(newOption, 0.35, {
 									BackgroundColor3 = library.colors.hoveredOptionTop,
 									ImageColor3 = library.colors.hoveredOptionBottom
-								}):Play()
+								})
 							end)
 							library.signals[1 + #library.signals] = optionButton.MouseLeave:Connect(function()
 								local togged = (not multiselect and selectedOption == v) or (multiselect and table.find(selectedOption, v))
-								tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(newOption, 0.35, {
 									BackgroundColor3 = (togged and library.colors.selectedOption) or library.colors.topGradient,
 									ImageColor3 = (togged and library.colors.unselectedOption) or library.colors.bottomGradient
-								}):Play()
+								})
 							end)
 							UpdateDropdownHolder()
 						end
@@ -4393,10 +4402,10 @@ function library:CreateWindow(options, ...)
 							colored_dropdown_BackgroundColor3[4] = 1.5
 							colored_dropdown_ImageColor3[3] = "main"
 							colored_dropdown_ImageColor3[4] = 2.5
-							tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(dropdown, 0.35, {
 								BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 								ImageColor3 = darkenColor(library.colors.main, 2.5)
-							}):Play()
+							})
 							dropdownHolderFrame.Visible = true
 							if not options.DisablePrecisionScrolling then
 								local scrollrate = tonumber(options.ScrollButtonRate or options.ScrollRate) or 5
@@ -4410,7 +4419,7 @@ function library:CreateWindow(options, ...)
 										if isup or isdown then
 											local txt = userInputService:GetFocusedTextBox()
 											if not txt or txt == dropdownSelection then
-												while wait_check() and userInputService:IsKeyDown(code) do
+												while wait_check(1 / 30) and userInputService:IsKeyDown(code) do
 													realDropdownHolder.CanvasPosition = Vector2:new(math.clamp(realDropdownHolder.CanvasPosition.Y + ((isup and -scrollrate) or scrollrate), 0, realDropdownHolder.AbsoluteCanvasSize.Y))
 												end
 											end
@@ -4426,10 +4435,10 @@ function library:CreateWindow(options, ...)
 							colored_dropdown_BackgroundColor3[4] = nil
 							colored_dropdown_ImageColor3[3] = "bottomGradient"
 							colored_dropdown_ImageColor3[4] = nil
-							tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(dropdown, 0.35, {
 								BackgroundColor3 = library.colors.topGradient,
 								ImageColor3 = library.colors.bottomGradient
-							}):Play()
+							})
 							dropdownHolderFrame.Visible = false
 							for ins, z in next, restorezindex do
 								ins.ZIndex = z
@@ -4440,7 +4449,7 @@ function library:CreateWindow(options, ...)
 					showing = dropdownEnabled
 					if showing or dropdownEnabled then
 					else
-						delay(0.01, update)
+						task.delay(0.01, update)
 					end
 				end
 				local Set = (multiselect and function(t, dat)
@@ -4540,7 +4549,7 @@ function library:CreateWindow(options, ...)
 				if not multiselect then
 					library.signals[1 + #library.signals] = dropdownSelection.FocusLost:Connect(function(b)
 						if showing then
-							wait()
+							task.wait()
 						end
 						showing = false
 						display(false)
@@ -4801,7 +4810,7 @@ function library:CreateWindow(options, ...)
 					dropdownSelection.Position = UDim2.new(0.0295485705)
 					dropdownSelection.Size = UDim2.fromScale(0.97, 1)
 					dropdownSelection.ZIndex = 5
-					dropdownSelection.Font = Enum.Font.Code
+					dropdownSelection.Font = library.configuration.font
 					dropdownSelection.LineHeight = 1.15
 					dropdownSelection.Text = (selectedOption and tostring(selectedOption)) or "nil"
 					dropdownSelection.TextColor3 = library.colors.otherElementText
@@ -4814,7 +4823,7 @@ function library:CreateWindow(options, ...)
 					dropdownHeadline.BackgroundTransparency = 1
 					dropdownHeadline.Position = UDim2.fromScale(0.034, 0.03)
 					dropdownHeadline.Size = UDim2.fromOffset(167, 11)
-					dropdownHeadline.Font = Enum.Font.Code
+					dropdownHeadline.Font = library.configuration.font
 					dropdownHeadline.Text = (dropdownName and tostring(dropdownName)) or "???"
 					dropdownHeadline.TextColor3 = library.colors.elementText
 					colored[1 + #colored] = {dropdownHeadline, "TextColor3", "elementText"}
@@ -4871,10 +4880,10 @@ function library:CreateWindow(options, ...)
 						colored_dropdown_BackgroundColor3[4] = 1.5
 						colored_dropdown_ImageColor3[3] = "main"
 						colored_dropdown_ImageColor3[4] = 2.5
-						tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(dropdown, 0.25, {
 							BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 							ImageColor3 = darkenColor(library.colors.main, 2.5)
-						}):Play()
+						})
 					end)
 					library.signals[1 + #library.signals] = newDropdown.MouseLeave:Connect(function()
 						if not dropdownEnabled then
@@ -4882,10 +4891,10 @@ function library:CreateWindow(options, ...)
 							colored_dropdown_BackgroundColor3[4] = nil
 							colored_dropdown_ImageColor3[3] = "bottomGradient"
 							colored_dropdown_ImageColor3[4] = nil
-							tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(dropdown, 0.25, {
 								BackgroundColor3 = library.colors.topGradient,
 								ImageColor3 = library.colors.bottomGradient
-							}):Play()
+							})
 						end
 					end)
 					local restorezindex = {}
@@ -4953,7 +4962,7 @@ function library:CreateWindow(options, ...)
 								optionButton.Position = UDim2.fromScale(0.5, 0.5)
 								optionButton.Size = UDim2.new(1, -10, 1)
 								optionButton.ZIndex = 5
-								optionButton.Font = Enum.Font.Code
+								optionButton.Font = library.configuration.font
 								optionButton.Text = (selectedOption == v and " " .. tostring(v)) or tostring(v)
 								optionButton.TextColor3 = (selectedOption == v and library.colors.main or library.colors.otherElementText)
 								optionButton.TextSize = 14
@@ -4982,10 +4991,10 @@ function library:CreateWindow(options, ...)
 										colored_dropdown_BackgroundColor3[4] = nil
 										colored_dropdown_ImageColor3[3] = "bottomGradient"
 										colored_dropdown_ImageColor3[4] = nil
-										tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+										tween(dropdown, 0.35, {
 											BackgroundColor3 = library.colors.topGradient,
 											ImageColor3 = library.colors.bottomGradient
-										}):Play()
+										})
 										library_flags[flagName] = selectedOption
 										if options.Location then
 											options.Location[options.LocationFlag or flagName] = selectedOption
@@ -5006,10 +5015,10 @@ function library:CreateWindow(options, ...)
 										colored_dropdown_BackgroundColor3[4] = nil
 										colored_dropdown_ImageColor3[3] = "bottomGradient"
 										colored_dropdown_ImageColor3[4] = nil
-										tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+										tween(dropdown, 0.35, {
 											BackgroundColor3 = library.colors.topGradient,
 											ImageColor3 = library.colors.bottomGradient
-										}):Play()
+										})
 										dropdownHolderFrame.Visible = false
 									end
 									for ins, z in next, restorezindex do
@@ -5017,16 +5026,16 @@ function library:CreateWindow(options, ...)
 									end
 								end)
 								library.signals[1 + #library.signals] = optionButton.MouseEnter:Connect(function()
-									tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+									tween(newOption, 0.35, {
 										BackgroundColor3 = library.colors.hoveredOptionTop,
 										ImageColor3 = library.colors.hoveredOptionBottom
-									}):Play()
+									})
 								end)
 								library.signals[1 + #library.signals] = optionButton.MouseLeave:Connect(function()
-									tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+									tween(newOption, 0.35, {
 										BackgroundColor3 = library.colors.unhoveredOptionTop,
 										ImageColor3 = library.colors.unhoveredOptionBottom
-									}):Play()
+									})
 								end)
 								UpdateDropdownHolder()
 							end
@@ -5051,10 +5060,10 @@ function library:CreateWindow(options, ...)
 								colored_dropdown_BackgroundColor3[4] = 1.5
 								colored_dropdown_ImageColor3[3] = "main"
 								colored_dropdown_ImageColor3[4] = 2.5
-								tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(dropdown, 0.35, {
 									BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 									ImageColor3 = darkenColor(library.colors.main, 2.5)
-								}):Play()
+								})
 								dropdownHolderFrame.Visible = true
 								if not options.DisablePrecisionScrolling then
 									local upkey = options.ScrollUpButton or library.scrollupbutton or shared.scrollupbutton or Enum.KeyCode.Up
@@ -5067,7 +5076,7 @@ function library:CreateWindow(options, ...)
 											if isup or isdown then
 												local txt = userInputService:GetFocusedTextBox()
 												if not txt then
-													while wait_check() and userInputService:IsKeyDown(code) do
+													while wait_check(1 / 30) and userInputService:IsKeyDown(code) do
 														realDropdownHolder.CanvasPosition = Vector2:new(math.clamp(realDropdownHolder.CanvasPosition.Y + ((isup and -5) or 5), 0, realDropdownHolder.AbsoluteCanvasSize.Y))
 													end
 												end
@@ -5083,10 +5092,10 @@ function library:CreateWindow(options, ...)
 								colored_dropdown_BackgroundColor3[4] = nil
 								colored_dropdown_ImageColor3[3] = "bottomGradient"
 								colored_dropdown_ImageColor3[4] = nil
-								tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(dropdown, 0.35, {
 									BackgroundColor3 = library.colors.topGradient,
 									ImageColor3 = library.colors.bottomGradient
-								}):Play()
+								})
 								dropdownHolderFrame.Visible = false
 								for ins, z in next, restorezindex do
 									ins.ZIndex = z
@@ -5096,7 +5105,7 @@ function library:CreateWindow(options, ...)
 							showing = dropdownEnabled
 							if showing or dropdownEnabled then
 							else
-								delay(0.01, update)
+								task.delay(0.01, update)
 							end
 						end
 					end
@@ -5136,7 +5145,7 @@ function library:CreateWindow(options, ...)
 					end)
 					library.signals[1 + #library.signals] = dropdownSelection.FocusLost:Connect(function(b)
 						if showing then
-							wait()
+							task.wait()
 						end
 						showing = false
 						display(false)
@@ -5302,7 +5311,7 @@ function library:CreateWindow(options, ...)
 					end
 					local fram = nil
 					do
-						local buttons, offset = {}, 0
+						local offset = 0
 						for _, options in next, {{
 							Name = "Save" .. ((suffix and (" " .. tostring(suffix))) or ""),
 							Callback = savestuff
@@ -5317,7 +5326,7 @@ function library:CreateWindow(options, ...)
 							realButton.BackgroundTransparency = 1
 							realButton.Size = UDim2.fromScale(1, 1)
 							realButton.ZIndex = 5
-							realButton.Font = Enum.Font.Code
+							realButton.Font = library.configuration.font
 							realButton.Text = (buttonName and tostring(buttonName)) or "???"
 							realButton.TextColor3 = library.colors.elementText
 							colored[1 + #colored] = {realButton, "TextColor3", "elementText"}
@@ -5380,20 +5389,20 @@ function library:CreateWindow(options, ...)
 								colored_button_BackgroundColor3[4] = 1.5
 								colored_button_ImageColor3[3] = "main"
 								colored_button_ImageColor3[4] = 2.5
-								tweenService:Create(button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(button, 0.35, {
 									BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 									ImageColor3 = darkenColor(library.colors.main, 2.5)
-								}):Play()
+								})
 							end)
 							library.signals[1 + #library.signals] = button.MouseLeave:Connect(function()
 								colored_button_BackgroundColor3[3] = "topGradient"
 								colored_button_BackgroundColor3[4] = nil
 								colored_button_ImageColor3[3] = "bottomGradient"
 								colored_button_ImageColor3[4] = nil
-								tweenService:Create(button, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+								tween(button, 0.35, {
 									BackgroundColor3 = library.colors.topGradient,
 									ImageColor3 = library.colors.bottomGradient
-								}):Play()
+								})
 							end)
 						end
 					end
@@ -5619,7 +5628,7 @@ function library:CreateWindow(options, ...)
 				dropdownSelection.Selectable = true
 				dropdownSelection.Size = UDim2.fromScale(0.97, 1)
 				dropdownSelection.ZIndex = 5
-				dropdownSelection.Font = Enum.Font.Code
+				dropdownSelection.Font = library.configuration.font
 				dropdownSelection.Text = (passed_multiselect == "string" and multiselect) or (multiselect and tostring(blankstring or "Select Item(s)")) or (selectedOption and tostring(selectedOption)) or tostring(blankstring or "No Blank String")
 				dropdownSelection.TextColor3 = library.colors.otherElementText
 				colored[1 + #colored] = {dropdownSelection, "TextColor3", "otherElementText"}
@@ -5631,7 +5640,7 @@ function library:CreateWindow(options, ...)
 				dropdownHeadline.BackgroundTransparency = 1
 				dropdownHeadline.Position = UDim2.fromScale(0.034, 0.03)
 				dropdownHeadline.Size = UDim2.fromOffset(167, 11)
-				dropdownHeadline.Font = Enum.Font.Code
+				dropdownHeadline.Font = library.configuration.font
 				dropdownHeadline.Text = (dropdownName and tostring(dropdownName)) or "???"
 				dropdownHeadline.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {dropdownHeadline, "TextColor3", "elementText"}
@@ -5873,7 +5882,7 @@ function library:CreateWindow(options, ...)
 						optionButton.Position = UDim2.fromScale(0.5, 0.5)
 						optionButton.Size = UDim2.new(1, -10, 1)
 						optionButton.ZIndex = 5
-						optionButton.Font = Enum.Font.Code
+						optionButton.Font = library.configuration.font
 						optionButton.Text = (togged and (" " .. stringed)) or stringed
 						optionButton.TextColor3 = (togged and library.colors.main) or library.colors.otherElementText
 						optionButton.TextSize = 14
@@ -5937,10 +5946,10 @@ function library:CreateWindow(options, ...)
 										colored_dropdown_BackgroundColor3[4] = nil
 										colored_dropdown_ImageColor3[3] = "bottomGradient"
 										colored_dropdown_ImageColor3[4] = nil
-										tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+										tween(dropdown, 0.35, {
 											BackgroundColor3 = library.colors.topGradient,
 											ImageColor3 = library.colors.bottomGradient
-										}):Play()
+										})
 										library_flags[flagName] = selectedOption
 										if options.Location then
 											options.Location[options.LocationFlag or flagName] = selectedOption
@@ -5960,10 +5969,10 @@ function library:CreateWindow(options, ...)
 										colored_dropdown_BackgroundColor3[4] = nil
 										colored_dropdown_ImageColor3[3] = "bottomGradient"
 										colored_dropdown_ImageColor3[4] = nil
-										tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+										tween(dropdown, 0.35, {
 											BackgroundColor3 = library.colors.topGradient,
 											ImageColor3 = library.colors.bottomGradient
-										}):Play()
+										})
 										dropdownHolderFrame.Visible = false
 									end
 								end
@@ -5973,17 +5982,17 @@ function library:CreateWindow(options, ...)
 							end
 						end)
 						library.signals[1 + #library.signals] = optionButton.MouseEnter:Connect(function()
-							tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(newOption, 0.35, {
 								BackgroundColor3 = library.colors.hoveredOptionTop,
 								ImageColor3 = library.colors.hoveredOptionBottom
-							}):Play()
+							})
 						end)
 						library.signals[1 + #library.signals] = optionButton.MouseLeave:Connect(function()
 							local togged = (not multiselect and selectedOption == v) or (multiselect and table.find(selectedOption, v))
-							tweenService:Create(newOption, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+							tween(newOption, 0.35, {
 								BackgroundColor3 = (togged and library.colors.selectedOption) or library.colors.topGradient,
 								ImageColor3 = (togged and library.colors.unselectedOption) or library.colors.bottomGradient
-							}):Play()
+							})
 						end)
 						UpdateDropdownHolder()
 					end
@@ -6012,10 +6021,10 @@ function library:CreateWindow(options, ...)
 						colored_dropdown_BackgroundColor3[4] = 1.5
 						colored_dropdown_ImageColor3[3] = "main"
 						colored_dropdown_ImageColor3[4] = 2.5
-						tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(dropdown, 0.35, {
 							BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 							ImageColor3 = darkenColor(library.colors.main, 2.5)
-						}):Play()
+						})
 						dropdownHolderFrame.Visible = true
 						if not options.DisablePrecisionScrolling then
 							local upkey = options.ScrollUpButton or library.scrollupbutton or shared.scrollupbutton or Enum.KeyCode.Up
@@ -6028,7 +6037,7 @@ function library:CreateWindow(options, ...)
 									if isup or isdown then
 										local txt = userInputService:GetFocusedTextBox()
 										if not txt or txt == dropdownSelection then
-											while wait_check() and userInputService:IsKeyDown(code) do
+											while wait_check(1 / 30) and userInputService:IsKeyDown(code) do
 												realDropdownHolder.CanvasPosition = Vector2:new(math.clamp(realDropdownHolder.CanvasPosition.Y + ((isup and -5) or 5), 0, realDropdownHolder.AbsoluteCanvasSize.Y))
 											end
 										end
@@ -6044,10 +6053,10 @@ function library:CreateWindow(options, ...)
 						colored_dropdown_BackgroundColor3[4] = nil
 						colored_dropdown_ImageColor3[3] = "bottomGradient"
 						colored_dropdown_ImageColor3[4] = nil
-						tweenService:Create(dropdown, TweenInfo.new(0.35, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(dropdown, 0.35, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 						dropdownHolderFrame.Visible = false
 						for ins, z in next, restorezindex do
 							ins.ZIndex = z
@@ -6060,7 +6069,7 @@ function library:CreateWindow(options, ...)
 					showing = dropdownEnabled
 					if showing or dropdownEnabled then
 					else
-						delay(0.01, update)
+						task.delay(0.01, update)
 					end
 				end
 				library.signals[1 + #library.signals] = newDropdown.InputEnded:Connect(function(input)
@@ -6074,10 +6083,10 @@ function library:CreateWindow(options, ...)
 					colored_dropdown_BackgroundColor3[4] = 1.5
 					colored_dropdown_ImageColor3[3] = "main"
 					colored_dropdown_ImageColor3[4] = 2.5
-					tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(dropdown, 0.25, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 				end)
 				library.signals[1 + #library.signals] = newDropdown.MouseLeave:Connect(function()
 					if not dropdownEnabled then
@@ -6085,10 +6094,10 @@ function library:CreateWindow(options, ...)
 						colored_dropdown_BackgroundColor3[4] = nil
 						colored_dropdown_ImageColor3[3] = "bottomGradient"
 						colored_dropdown_ImageColor3[4] = nil
-						tweenService:Create(dropdown, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(dropdown, 0.25, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 					end
 				end)
 				library.signals[1 + #library.signals] = dropdownToggle.MouseButton1Click:Connect(function()
@@ -6177,7 +6186,6 @@ function library:CreateWindow(options, ...)
 							warn("Attempting to use new table for", flagName, " Please use :Set(), as setting through flags table may cause errors", debug.traceback(""))
 							lastv = library_flags[flagName]
 						end
-						local cloned = {unpack(selectedOption)}
 						if not dat then
 							if #selectedOption ~= 0 then
 								table.clear(selectedOption)
@@ -6299,9 +6307,6 @@ function library:CreateWindow(options, ...)
 				local colorPickerEnabled = false
 				local colorH, colorS, colorV = 1, 1, 1
 				local colorInput, hueInput = nil, nil
-				local oldBackgroundColor = Color3.new()
-				local oldImageColor = oldBackgroundColor
-				local oldColor = oldBackgroundColor
 				local rainbowColorValue = 0
 				newColorPicker.Name = "newColorPicker"
 				newColorPicker.Parent = sectionHolder
@@ -6341,7 +6346,7 @@ function library:CreateWindow(options, ...)
 				colorPickerHeadline.BackgroundTransparency = 1
 				colorPickerHeadline.Position = UDim2.fromScale(0.034, 0.113)
 				colorPickerHeadline.Size = UDim2.fromOffset(173, 11)
-				colorPickerHeadline.Font = Enum.Font.Code
+				colorPickerHeadline.Font = library.configuration.font
 				colorPickerHeadline.Text = colorPickerName or "???"
 				colorPickerHeadline.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {colorPickerHeadline, "TextColor3", "elementText"}
@@ -6512,7 +6517,7 @@ function library:CreateWindow(options, ...)
 				hexInputBox.BackgroundTransparency = 1
 				hexInputBox.Size = UDim2.fromScale(1, 1)
 				hexInputBox.ZIndex = 5
-				hexInputBox.Font = Enum.Font.Code
+				hexInputBox.Font = library.configuration.font
 				hexInputBox.PlaceholderText = "Hex Input"
 				hexInputBox.Text = Color3ToHex(startingColor)
 				hexInputBox.TextColor3 = library.colors.elementText
@@ -6617,16 +6622,15 @@ function library:CreateWindow(options, ...)
 								library[indexwith] = 1 + library[indexwith]
 							end
 							library.rainbowflags[flagName] = true
-							oldImageColor = colorPickerInner.ImageColor3
-							oldBackgroundColor = colorPickerInner.BackgroundColor3
-							oldColor = color.BackgroundColor3
 							pcall(function()
-								local common_float = 1 / 255
-								while wait_check() and rainbowColorMode and (options.Value == "rainbow" or ((not designers and not destroyrainbowsg) or (designers and not destroyrainbows))) do
-									rainbowColorValue = common_float + rainbowColorValue
-									if rainbowColorValue > 1 then
-										rainbowColorValue = 0
+								-- Time-based hue so the cycle speed (~8.5s) doesn't depend on frame rate
+								local cycleSeconds = 8.5
+								while rainbowColorMode do
+									local dt = wait_check()
+									if not dt or not rainbowColorMode or not (options.Value == "rainbow" or ((not designers and not destroyrainbowsg) or (designers and not destroyrainbows))) then
+										break
 									end
+									rainbowColorValue = (rainbowColorValue + dt / cycleSeconds) % 1
 									colorH = rainbowColorValue
 									UpdateColorPicker(Color3.fromHSV(rainbowColorValue, 1, 1), true)
 								end
@@ -6651,10 +6655,10 @@ function library:CreateWindow(options, ...)
 				library.signals[1 + #library.signals] = rainbowButton.MouseButton1Click:Connect(setrainbow)
 				sectionFunctions:Update()
 				library.signals[1 + #library.signals] = newColorPicker.MouseEnter:Connect(function()
-					tweenService:Create(colorPicker, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+					tween(colorPicker, 0.25, {
 						BackgroundColor3 = darkenColor(library.colors.main, 1.5),
 						ImageColor3 = darkenColor(library.colors.main, 2.5)
-					}):Play()
+					})
 					colored_colorPicker_BackgroundColor3[3] = "main"
 					colored_colorPicker_BackgroundColor3[4] = 1.5
 					colored_colorPicker_ImageColor3[3] = "main"
@@ -6662,10 +6666,10 @@ function library:CreateWindow(options, ...)
 				end)
 				library.signals[1 + #library.signals] = newColorPicker.MouseLeave:Connect(function()
 					if not colorPickerEnabled then
-						tweenService:Create(colorPicker, TweenInfo.new(0.25, library.configuration.easingStyle, library.configuration.easingDirection), {
+						tween(colorPicker, 0.25, {
 							BackgroundColor3 = library.colors.topGradient,
 							ImageColor3 = library.colors.bottomGradient
-						}):Play()
+						})
 						colored_colorPicker_BackgroundColor3[3] = "topGradient"
 						colored_colorPicker_BackgroundColor3[4] = nil
 						colored_colorPicker_ImageColor3[3] = "bottomGradient"
@@ -6726,7 +6730,7 @@ function library:CreateWindow(options, ...)
 					end
 				end)
 				if rainbowColorMode then
-					spawn(function()
+					task.defer(function()
 						rainbowColorMode = nil
 						setrainbow(true)
 					end)
@@ -7141,7 +7145,7 @@ function library:CreateWindow(options, ...)
 			library.SaveFile = savestuff.SaveFile
 			library.GetJSON = savestuff.GetJSON
 		end
-		spawn(updatecolorsnotween)
+		queuecolorupdate()
 		local dorlod = nil
 		if options.HideTheme then
 			designer.Remove()
@@ -7203,7 +7207,7 @@ function library:CreateWindow(options, ...)
 	end
 	library.UpdateAll = windowFunctions.UpdateAll
 	if options.Themeable or options.DefaultTheme or options.Theme then
-		spawn(function()
+		task.defer(function()
 			local os_clock = os.clock
 			local starttime = os_clock()
 			while os_clock() - starttime < 12 do
@@ -7227,7 +7231,7 @@ function library:CreateWindow(options, ...)
 			end
 			windowFunctions:CreateDesigner(whatDoILookLike)
 			if options.DefaultTheme or options.Theme then
-				spawn(function()
+				task.defer(function()
 					local content = options.DefaultTheme or options.Theme or options.JSON or options.ThemeJSON
 					if content and type(content) == "string" and #content > 1 then
 						local good, jcontent = JSONDecode(content)
