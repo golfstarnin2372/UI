@@ -867,7 +867,7 @@ do
 			Text.TextColor3 = library.colors.elementText
 			colored[1 + #colored] = {Text, "TextColor3", "elementText"}
 			Text.TextSize = 14
-			Text.TextStrokeTransparency = 0.75
+			Text.TextStrokeTransparency = 1
 			Button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			Button.BackgroundTransparency = 1
 			Button.BorderSizePixel = 0
@@ -1106,7 +1106,7 @@ do
 				Title.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {Title, "TextColor3", "elementText"}
 				Title.TextSize = 15
-				Title.TextStrokeTransparency = 0.95
+				Title.TextStrokeTransparency = 1
 				Title.TextXAlignment = Enum.TextXAlignment.Left
 				Description.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 				Description.BackgroundTransparency = 1
@@ -1119,7 +1119,7 @@ do
 				Description.TextColor3 = library.colors.elementText
 				colored[1 + #colored] = {Description, "TextColor3", "elementText"}
 				Description.TextSize = 14
-				Description.TextStrokeTransparency = 0.95
+				Description.TextStrokeTransparency = 1
 				Description.TextTruncate = Enum.TextTruncate.AtEnd
 				Description.TextWrap = true
 				Description.TextWrapped = true
@@ -1420,7 +1420,7 @@ do
 			colored[1 + #colored] = {Text, "TextColor3", "elementText"}
 			Text.TextScaled = true
 			Text.TextSize = 14
-			Text.TextStrokeTransparency = 0.75
+			Text.TextStrokeTransparency = 1
 			Text.TextWrap = true
 			Text.TextWrapped = true
 			Text.TextXAlignment = Enum.TextXAlignment.Left
@@ -1558,6 +1558,63 @@ do
 		end
 	end
 end
+-- Rounded corners + thin strokes. Roblox borders can't follow UICorner, so every bordered
+-- GuiObject gets a UICorner and its border is moved onto a theme-aware UIStroke.
+local polishClasses = {Frame = true, TextButton = true, TextBox = true, ImageLabel = true, ImageButton = true, TextLabel = true}
+local polishQueue, polishQueued = {}, false
+local function polishRadius(obj)
+	local size = obj.Size
+	local w = (size.X.Scale > 0 and 999) or math.abs(size.X.Offset)
+	local h = (size.Y.Scale > 0 and 999) or math.abs(size.Y.Offset)
+	local smallest = math.min(w, h)
+	if smallest >= 150 then
+		return 6
+	elseif smallest >= 14 then
+		return 4
+	end
+	return 2
+end
+local function polishFlush()
+	polishQueued = false
+	local queue = polishQueue
+	polishQueue = {}
+	local borderKeys = {}
+	for _, data in next, colored do
+		if data[2] == "BorderColor3" then
+			borderKeys[data[1]] = data
+		end
+	end
+	for _, obj in next, queue do
+		if obj.Parent and polishClasses[obj.ClassName] and obj.BorderSizePixel > 0 and not obj:FindFirstChildOfClass("UIStroke") then
+			if not obj:FindFirstChildOfClass("UICorner") then
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(0, polishRadius(obj))
+				corner.Parent = obj
+			end
+			local stroke = Instance.new("UIStroke")
+			stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			stroke.LineJoinMode = Enum.LineJoinMode.Round
+			stroke.Thickness = 1
+			stroke.Color = obj.BorderColor3
+			stroke.Parent = obj
+			local data = borderKeys[obj]
+			if data then
+				colored[1 + #colored] = {stroke, "Color", data[3], data[4]}
+			end
+			obj.BorderSizePixel = 0
+		end
+	end
+end
+local function polishWatch(root)
+	library.signals[1 + #library.signals] = root.DescendantAdded:Connect(function(obj)
+		polishQueue[1 + #polishQueue] = obj
+		if not polishQueued then
+			polishQueued = true
+			task.defer(polishFlush)
+		end
+	end)
+end
+library.subs.Polish = polishFlush
 function library:CreateWindow(options, ...)
 	options = (options and type(options) == "string" and resolvevararg("Window", options, ...)) or options
 	local homepage = nil
@@ -1589,6 +1646,7 @@ function library:CreateWindow(options, ...)
 	pepsiLibrary.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	pepsiLibrary.DisplayOrder = 10
 	pepsiLibrary.ResetOnSpawn = false
+	polishWatch(pepsiLibrary)
 	main.Name = "main"
 	main.Parent = pepsiLibrary
 	main.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1676,7 +1734,7 @@ function library:CreateWindow(options, ...)
 	headline.TextSize = 14
 	headline.TextStrokeColor3 = library.colors.outerBorder
 	colored[1 + #colored] = {headline, "TextStrokeColor3", "outerBorder"}
-	headline.TextStrokeTransparency = 0.75
+	headline.TextStrokeTransparency = 1
 	headline.Size = UDim2:new(textToSize(headline).X + 4, 1)
 	splitter.Name = "splitter"
 	splitter.Parent = tabsHolder
@@ -1691,7 +1749,7 @@ function library:CreateWindow(options, ...)
 	splitter.TextSize = 14
 	splitter.TextStrokeColor3 = library.colors.tabText
 	colored[1 + #colored] = {splitter, "TextStrokeColor3", "tabText"}
-	splitter.TextStrokeTransparency = 0.75
+	splitter.TextStrokeTransparency = 1
 	tabSlider.Name = "tabSlider"
 	tabSlider.Parent = main
 	tabSlider.BackgroundColor3 = library.colors.main
@@ -1732,6 +1790,9 @@ function library:CreateWindow(options, ...)
 		toggleUI.Font = library.configuration.font
 		toggleUI.Text = "UI"
 		toggleUI.TextSize = 13
+		local toggleCorner = Instance.new("UICorner")
+		toggleCorner.CornerRadius = UDim.new(1, 0)
+		toggleCorner.Parent = toggleUI
 		toggleUI.BackgroundColor3 = library.colors.topGradient
 		colored[1 + #colored] = {toggleUI, "BackgroundColor3", "topGradient"}
 		toggleUI.BorderColor3 = library.colors.main
@@ -1827,7 +1888,7 @@ function library:CreateWindow(options, ...)
 			end
 			newTab.TextSize = 14
 			newTab.TextStrokeColor3 = Color3.fromRGB(42, 42, 42)
-			newTab.TextStrokeTransparency = 0.75
+			newTab.TextStrokeTransparency = 1
 			newTab.Size = UDim2:new(textToSize(newTab).X + 4, 1)
 		end
 		local function goto()
