@@ -13,7 +13,8 @@ local library = {
 		smoothDragging = false,
 		easingStyle = Enum.EasingStyle.Quart,
 		easingDirection = Enum.EasingDirection.Out,
-		font = Enum.Font.Gotham
+		font = Enum.Font.Gotham,
+		showToggleButton = true
 	},
 	colors = {
 		main = Color3.fromRGB(140, 123, 255),
@@ -1719,6 +1720,45 @@ function library:CreateWindow(options, ...)
 		Flags = elements
 	}
 	library.globals["__Window" .. windowName].windowFunctions = windowFunctions
+	if library.configuration.showToggleButton then
+		-- Floating on-screen toggle (useful without a keyboard). Drag to move, tap to show/hide.
+		local toggleUI = Instance_new("TextButton")
+		toggleUI.Name = "toggleUI"
+		toggleUI.Parent = pepsiLibrary
+		toggleUI.AutoButtonColor = false
+		toggleUI.AnchorPoint = Vector2.new(0.5, 0.5)
+		toggleUI.Position = UDim2.new(0, 36, 0.5, 0)
+		toggleUI.Size = UDim2.fromOffset(34, 34)
+		toggleUI.Font = library.configuration.font
+		toggleUI.Text = "UI"
+		toggleUI.TextSize = 13
+		toggleUI.BackgroundColor3 = library.colors.topGradient
+		colored[1 + #colored] = {toggleUI, "BackgroundColor3", "topGradient"}
+		toggleUI.BorderColor3 = library.colors.main
+		colored[1 + #colored] = {toggleUI, "BorderColor3", "main"}
+		toggleUI.TextColor3 = library.colors.main
+		colored[1 + #colored] = {toggleUI, "TextColor3", "main"}
+		makeDraggable(toggleUI, toggleUI)
+		local pressedAt = nil
+		library.signals[1 + #library.signals] = toggleUI.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				pressedAt = toggleUI.AbsolutePosition
+			end
+		end)
+		library.signals[1 + #library.signals] = toggleUI.Activated:Connect(function()
+			local moved = pressedAt and (toggleUI.AbsolutePosition - pressedAt).Magnitude > 4
+			pressedAt = nil
+			if not moved then
+				main.Visible = not main.Visible
+			end
+		end)
+		library.signals[1 + #library.signals] = toggleUI.MouseEnter:Connect(function()
+			tween(toggleUI, 0.25, {BackgroundColor3 = library.colors.hoveredOptionTop})
+		end)
+		library.signals[1 + #library.signals] = toggleUI.MouseLeave:Connect(function()
+			tween(toggleUI, 0.25, {BackgroundColor3 = library.colors.topGradient})
+		end)
+	end
 	function windowFunctions:Show(x)
 		main.Visible = (x == nil) or (x == true) or (x == 1)
 		return main.Visible
